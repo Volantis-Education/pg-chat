@@ -19,7 +19,8 @@ APP_PASSWORD=your-secure-password-here
 DB_URL=postgresql://username:password@your-database-host:5432/database_name
 
 # OpenAI API Key (for AI features)
-OPENAI_API_KEY=sk-your-openai-api-key-here
+# Get your key from https://platform.openai.com/api-keys
+OPENAI_API_KEY=your-openai-api-key-starting-with-sk
 ```
 
 ### Optional Variables (if you want Supabase auth):
