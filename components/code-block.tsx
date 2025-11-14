@@ -1,6 +1,6 @@
 'use client'
 
-import { Check, Copy, BarChart3 } from 'lucide-react'
+import { Check, Copy, BarChart3, Download } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -114,6 +114,59 @@ function CodeBlock({
     setIsChartLoading(false)
   }
 
+  const downloadCSV = () => {
+    if (!sqlResult || typeof sqlResult === 'string') return
+
+    try {
+      // Get headers from fields
+      const headers = sqlResult.fields.map((field) => field.name)
+      
+      // Convert rows to CSV format
+      const csvRows = []
+      
+      // Add header row
+      csvRows.push(headers.map(h => `"${h}"`).join(','))
+      
+      // Add data rows
+      sqlResult.rows.forEach((row) => {
+        const values = headers.map((header) => {
+          const value = (row as Record<string, unknown>)[header]
+          // Handle null/undefined
+          if (value === null || value === undefined) return '""'
+          // Handle objects/arrays
+          if (typeof value === 'object') return `"${JSON.stringify(value).replace(/"/g, '""')}"`
+          // Escape quotes and wrap in quotes
+          return `"${String(value).replace(/"/g, '""')}"`
+        })
+        csvRows.push(values.join(','))
+      })
+      
+      // Create blob and download
+      const csvContent = csvRows.join('\n')
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const link = document.createElement('a')
+      const url = URL.createObjectURL(blob)
+      
+      link.setAttribute('href', url)
+      link.setAttribute('download', `query_results_${new Date().toISOString().slice(0, 10)}.csv`)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      
+      toast({
+        title: 'CSV Downloaded',
+        description: `Successfully downloaded ${sqlResult.rows.length} rows`,
+      })
+    } catch (error) {
+      toast({
+        title: 'Error downloading CSV',
+        description: 'Could not generate CSV file',
+        variant: 'destructive',
+      })
+    }
+  }
+
   if (
     language !== 'sql' &&
     typeof children === 'string' &&
@@ -153,18 +206,30 @@ function CodeBlock({
           <SqlResult result={sqlResult} />
           {typeof sqlResult !== 'string' && sqlResult.rows?.length > 0 && (
             <>
-              {!showChart && (
+              <div className="flex gap-2">
                 <Button
                   size={'sm'}
                   variant={'outline'}
-                  onClick={handleShowChart}
-                  disabled={isChartLoading || isDisabled}
+                  onClick={downloadCSV}
+                  disabled={isDisabled}
                   className="flex items-center gap-2"
                 >
-                  <BarChart3 className="w-4 h-4" />
-                  Show Chart
+                  <Download className="w-4 h-4" />
+                  Download CSV
                 </Button>
-              )}
+                {!showChart && (
+                  <Button
+                    size={'sm'}
+                    variant={'outline'}
+                    onClick={handleShowChart}
+                    disabled={isChartLoading || isDisabled}
+                    className="flex items-center gap-2"
+                  >
+                    <BarChart3 className="w-4 h-4" />
+                    Show Chart
+                  </Button>
+                )}
+              </div>
               {showChart && chartConfig && (
                 <div className="mt-4">
                   <DynamicChart

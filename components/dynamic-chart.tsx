@@ -29,10 +29,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useState, useMemo } from 'react'
+import { Button } from '@/components/ui/button'
+import { Download } from 'lucide-react'
+import { useState, useMemo, useCallback, useRef } from 'react'
 import { Label } from 'recharts'
 import { transformDataForMultiLineChart } from '@/lib/rechart-format'
 import type { Config, Result } from '@/lib/chart'
+import { toast } from '@/hooks/use-toast'
 
 const chartTypes = ['bar', 'line', 'area', 'pie', 'scatter'] as const
 
@@ -61,12 +64,49 @@ export function DynamicChart({
   chartConfig: Config
 }) {
   const [chartConfig, setChartConfig] = useState<Config>(initialConfig)
+  const chartRef = useRef<HTMLDivElement>(null)
 
-  const handleChartTypeChange = (type: (typeof chartTypes)[number]) => {
+  const handleChartTypeChange = useCallback((type: (typeof chartTypes)[number]) => {
     setChartConfig((prev) => ({ ...prev, type }))
-  }
+  }, [])
 
-  const renderChart = () => {
+  const downloadChartAsPNG = useCallback(async () => {
+    if (!chartRef.current) return
+
+    try {
+      // Dynamically import html2canvas only when needed
+      const html2canvas = (await import('html2canvas')).default
+      
+      const canvas = await html2canvas(chartRef.current, {
+        backgroundColor: '#000000',
+        scale: 2, // Higher quality
+      })
+      
+      canvas.toBlob((blob) => {
+        if (!blob) return
+        
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.download = `${chartConfig.title.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.png`
+        link.href = url
+        link.click()
+        URL.revokeObjectURL(url)
+        
+        toast({
+          title: 'Chart Downloaded',
+          description: 'Chart has been saved as PNG',
+        })
+      })
+    } catch (error) {
+      toast({
+        title: 'Error downloading chart',
+        description: 'Could not export chart as PNG',
+        variant: 'destructive',
+      })
+    }
+  }, [chartConfig.title])
+
+  const renderChart = useCallback(() => {
     if (!chartData || !chartConfig) return <div>No chart data</div>
     const parsedChartData = chartData.map((item) => {
       // biome-ignore lint/suspicious/noExplicitAny: <explanation>
@@ -201,8 +241,9 @@ export function DynamicChart({
               dataKey={chartConfig.yKeys[0]}
               nameKey={chartConfig.xKey}
               cx="50%"
-              cy="50%"
-              outerRadius={120}
+              cy="45%"
+              outerRadius={100}
+              label
             >
               {processedData.map((_, index) => (
                 <Cell
@@ -212,7 +253,7 @@ export function DynamicChart({
               ))}
             </Pie>
             <ChartTooltip content={<ChartTooltipContent />} />
-            {chartConfig.legend && <Legend />}
+            {chartConfig.legend && <Legend wrapperStyle={{ paddingTop: '20px' }} />}
           </PieChart>
         )
       case 'scatter':
@@ -251,7 +292,7 @@ export function DynamicChart({
       default:
         return <div>Unsupported chart type: {chartConfig.type}</div>
     }
-  }
+  }, [chartData, chartConfig])
 
   // Memoize the chart rendering to prevent unnecessary re-renders during scrolling
   const memoizedChart = useMemo(() => {
@@ -260,6 +301,15 @@ export function DynamicChart({
         <div className="w-full flex justify-between items-center mb-4">
           <h2 className="text-lg font-bold">{chartConfig.title}</h2>
           <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={downloadChartAsPNG}
+              className="flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Download PNG
+            </Button>
             <span className="text-sm font-medium">Chart Type:</span>
             <Select value={chartConfig.type} onValueChange={handleChartTypeChange}>
               <SelectTrigger className="w-[180px]">
@@ -276,25 +326,27 @@ export function DynamicChart({
           </div>
         </div>
         {chartConfig && chartData.length > 0 && (
-          <ChartContainer
-            config={chartConfig.yKeys.reduce(
-              (
-                acc: { [key: string]: { label: string; color: string } },
-                key: string,
-                index: number
-              ) => {
-                acc[key] = {
-                  label: key,
-                  color: colors[index % colors.length],
-                }
-                return acc
-              },
-              {} as Record<string, { label: string; color: string }>
-            )}
-            className="h-[320px] w-full"
-          >
-            {renderChart()}
-          </ChartContainer>
+          <div ref={chartRef} className="w-full">
+            <ChartContainer
+              config={chartConfig.yKeys.reduce(
+                (
+                  acc: { [key: string]: { label: string; color: string } },
+                  key: string,
+                  index: number
+                ) => {
+                  acc[key] = {
+                    label: key,
+                    color: colors[index % colors.length],
+                  }
+                  return acc
+                },
+                {} as Record<string, { label: string; color: string }>
+              )}
+              className="h-[400px] w-full"
+            >
+              {renderChart()}
+            </ChartContainer>
+          </div>
         )}
         <div className="w-full text-wrap">
           <p className="mt-4 text-sm">{chartConfig.description}</p>
@@ -302,7 +354,7 @@ export function DynamicChart({
         </div>
       </div>
     )
-  }, [chartConfig, chartData, handleChartTypeChange, renderChart])
+  }, [chartConfig, chartData, handleChartTypeChange, renderChart, downloadChartAsPNG])
 
   return memoizedChart
 }

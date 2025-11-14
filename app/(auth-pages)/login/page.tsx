@@ -1,8 +1,7 @@
 import Link from 'next/link'
-import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import { SubmitButton } from '@/components/submit-button'
-import { z } from 'zod'
+import { cookies } from 'next/headers'
 import {
   Card,
   CardHeader,
@@ -13,44 +12,38 @@ import {
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 
-const formSchema = z.object({
-  email: z.string().email(),
-})
-
 export default async function Login({
   searchParams,
 }: {
-  searchParams: Promise<{ message: string; errorMessage: string }>
+  searchParams: Promise<{ error?: string }>
 }) {
   const params = await searchParams
+  
   const login = async (formData: FormData) => {
     'use server'
 
-    const formSafeParsed = formSchema.safeParse({
-      email: formData.get('email') as string,
-    })
-    if (!formSafeParsed.success) {
-      return redirect('/login?errorMessage=Invalid email')
+    const password = formData.get('password') as string
+    const appPassword = process.env.APP_PASSWORD
+
+    if (!appPassword) {
+      return redirect('/login?error=Server configuration error')
     }
 
-    const defaultUrl = process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : `http://localhost:${process.env.PORT || 3000}`
-
-    const supabase = await createClient()
-
-    const { error } = await supabase.auth.signInWithOtp({
-      email: formSafeParsed.data.email,
-      options: {
-        emailRedirectTo: `${defaultUrl}/api/auth/callback`,
-      },
-    })
-
-    if (error) {
-      return redirect('/login?errorMessage=Could not authenticate user')
+    if (password !== appPassword) {
+      return redirect('/login?error=Invalid password')
     }
 
-    return redirect('/login?message=Check email to continue sign in process')
+    // Set authentication cookie
+    const cookieStore = await cookies()
+    cookieStore.set('app-auth', 'authenticated', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+      path: '/',
+    })
+
+    return redirect('/app')
   }
 
   return (
@@ -80,23 +73,19 @@ export default async function Login({
         <CardHeader>
           <CardTitle className="text-2xl">Login</CardTitle>
           <CardDescription>
-            Enter your email below to login to your account
+            Enter the password to access the application
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4">
-            {/* TODO: google login */}
-            {/* <Button>Login with google</Button>
-
-            <div className="border-black border-b-2" /> */}
             <form className="grid gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="password">Password</Label>
                 <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  placeholder="m@example.com"
+                  id="password"
+                  name="password"
+                  type="password"
+                  placeholder="Enter password"
                   required
                 />
               </div>
@@ -104,13 +93,9 @@ export default async function Login({
               <SubmitButton formAction={login} pendingText="Signing In...">
                 Login
               </SubmitButton>
-              {(params?.message || params?.errorMessage) && (
-                <p
-                  className={`mt-4 p-1 text-center ${
-                    params.errorMessage ? 'text-red-500' : ''
-                  }`}
-                >
-                  {params.message || params.errorMessage}
+              {params?.error && (
+                <p className="mt-4 p-1 text-center text-red-500">
+                  {params.error}
                 </p>
               )}
             </form>

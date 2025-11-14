@@ -19,6 +19,7 @@ import { useAppLocalStorage } from '@/hooks/use-app-local-storage'
 
 export function ConnectionForm({
   setConnectionString,
+  envConfig,
 }: {
   setConnectionString: React.Dispatch<
     React.SetStateAction<{
@@ -27,12 +28,18 @@ export function ConnectionForm({
       model: string
     }>
   >
+  envConfig?: {
+    connectionString: string
+    openaiApiKey: string
+  }
 }) {
   const { value } = useAppLocalStorage()
   const [connectionString, setConnectionStringInput] = useState(
-    value.connectionString
+    value.connectionString || envConfig?.connectionString || ''
   )
-  const [openaiApiKey, setOpenaiApiKey] = useState(value.openaiApiKey)
+  const [openaiApiKey, setOpenaiApiKey] = useState(
+    value.openaiApiKey || envConfig?.openaiApiKey || ''
+  )
   const [model, setModel] = useState(value.model || 'gpt-4o-mini')
   const [isLoading, setIsLoading] = useState(false)
   const [testSuccess, setTestSuccess] = useState(false)

@@ -6,14 +6,13 @@ import ConnectionForm from './connection-form'
 
 import { useEffect, useMemo } from 'react'
 import { Message } from 'ai'
-import { User } from '@supabase/supabase-js'
 import { useAppState } from '@/state'
 import { useIsMounted } from '@/hooks/use-is-mounted'
 import { v4 } from 'uuid'
 
 export default function ChatInterface({
   chat: chatProp,
-  user,
+  envConfig,
 }: {
   chat:
     | {
@@ -22,7 +21,10 @@ export default function ChatInterface({
         messages: Message[]
       }
     | undefined
-  user: User
+  envConfig?: {
+    connectionString: string
+    openaiApiKey: string
+  }
 }) {
   const { value, setValue } = useAppLocalStorage()
   const { setChat, chat: chatState } = useAppState()
@@ -52,9 +54,9 @@ export default function ChatInterface({
   return (
     <>
       {shouldShowChat ? (
-        <Chat initialId={chatState.id} user={user} key={chatState.id} />
+        <Chat initialId={chatState.id} key={chatState.id} />
       ) : (
-        <ConnectionForm setConnectionString={setValue} />
+        <ConnectionForm setConnectionString={setValue} envConfig={envConfig} />
       )}
     </>
   )

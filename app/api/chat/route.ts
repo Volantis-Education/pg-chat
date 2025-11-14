@@ -3,9 +3,6 @@ import {
   streamText,
   convertToCoreMessages,
   tool,
-  smoothStream,
-  appendResponseMessages,
-  generateText,
 } from 'ai'
 import { headers } from 'next/headers'
 import { z } from 'zod'
@@ -17,21 +14,11 @@ import {
   getPublicTablesWithColumns,
   getTableStats,
 } from './utils'
-import { createClient } from '@/utils/supabase/server'
-import { revalidatePath } from 'next/cache'
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30
 
 export async function POST(req: Request) {
-  const client = await createClient()
-  const { data } = await client.auth.getUser()
-  const user = data.user
-  if (!user) {
-    console.log('Unauthorized: No user found')
-    return new Response('Unauthorized', { status: 401 })
-  }
-
   const { messages, id } = await req.json()
   console.log('Request payload:', { id, messageCount: messages?.length })
 
@@ -51,27 +38,6 @@ export async function POST(req: Request) {
     return new Response('Invalid id', { status: 400 })
   }
 
-  // check if the chat exists
-  const { data: chat, error } = await client
-    .from('chats')
-    .select('*')
-    .eq('id', id)
-    .maybeSingle()
-
-  if (error) {
-    console.error('Database error when fetching chat:', error)
-    return new Response('Error fetching chat', { status: 500 })
-  }
-
-  // is chat from user
-  if (chat && chat.user_id !== user.id) {
-    console.log('Unauthorized: Chat belongs to different user', {
-      chatUserId: chat.user_id,
-      requestUserId: user.id,
-    })
-    return new Response('Unauthorized', { status: 401 })
-  }
-
   if (!connectionString) {
     console.log('Bad request: Missing connection string')
     return new Response('No connection string provided', { status: 400 })
@@ -81,10 +47,10 @@ export async function POST(req: Request) {
 
   const openai = createOpenAI({
     // biome-ignore lint/style/noNonNullAssertion: <explanation>
-    apiKey: projectOpenaiApiKey!,
+    apiKey: openaiApiKey || projectOpenaiApiKey!,
   })
 
-  const shouldUpdateChats = !chat
+  const shouldUpdateChats = false
 
   const result = streamText({
     // todo remove any we already validate the field
@@ -222,65 +188,8 @@ export async function POST(req: Request) {
       }),
     },
     onFinish: async ({ response }) => {
-      console.log('Stream completed, updating database')
-      try {
-        if (chat) {
-          console.log('Updating existing chat:', id)
-          await client
-            .from('chats')
-            .update({
-              messages: JSON.stringify(
-                appendResponseMessages({
-                  messages,
-                  responseMessages: response.messages,
-                })
-              ),
-            })
-            .eq('id', id)
-        } else {
-          console.log('Creating new chat:', id)
-          const generatedName = await generateText({
-            model: openai('gpt-4o-mini'),
-            system: `
-You are an assistant that generates short, concise, descriptive chat names for a PostgreSQL chatbot. 
-The name must:
-• Capture the essence of the conversation in one sentence.
-• Be relevant to PostgreSQL topics.
-• Contain no extra words, labels, or prefixes such as "Title:" or "Chat:".
-• Not include quotation marks or the word "Chat" anywhere.
-
-Example of a good name: Counting users
-Example of a good name: Counting users in the last 30 days
-
-Example of a bad name: Chat about PostgreSQL: Counting users
-Example of a bad name: "Counting users"
-
-Your response should be the title text only, nothing else.
-          
-            `,
-            prompt: `The messages are <MESSAGES>${JSON.stringify(
-              messages
-            )}</MESSAGES>`,
-          })
-
-          await client.from('chats').insert({
-            id,
-            user_id: user.id,
-            messages: JSON.stringify(
-              appendResponseMessages({
-                messages,
-                responseMessages: response.messages,
-              })
-            ),
-            name: generatedName.text,
-            created_at: new Date().toISOString(),
-          })
-        }
-        console.log('Database update completed successfully')
-        revalidatePath('/app')
-      } catch (error) {
-        console.error('Error updating database:', error)
-      }
+      // Chat history is disabled when not using authentication
+      console.log('Stream completed (chat history disabled)')
     },
   })
 

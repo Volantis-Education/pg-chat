@@ -2,7 +2,7 @@
 
 import { useChat } from '@ai-sdk/react'
 import { useAppLocalStorage } from '@/hooks/use-app-local-storage'
-import { useRef, useCallback, useMemo, useState, useEffect, memo } from 'react'
+import { useRef, useCallback, useMemo, useState, useEffect } from 'react'
 import { motion } from 'motion/react'
 import { Form } from './form'
 import TextSkeleton from './text-skeleton'
@@ -20,9 +20,7 @@ import {
 } from '@/components/ui/table'
 import { useToast } from '../hooks/use-toast'
 import Navbar from './navbar'
-import { User } from '@supabase/supabase-js'
 import { useAppState } from '../state'
-import { usePathname } from 'next/navigation'
 
 const toolCallToNameText = {
   getExplainForQuery: 'Getting query plan...',
@@ -33,11 +31,8 @@ const toolCallToNameText = {
   getTableStats: 'Collecting table statistics...',
 }
 
-function ChatComponent({ initialId, user }: { initialId: string; user: User }) {
+function ChatComponent({ initialId }: { initialId: string }) {
   const chat = useAppState((state) => state.chat)
-  const updateChats = useAppState((state) => state.updateChats)
-  const [isNewChat, setIsNewChat] = useState(false)
-  const pathname = usePathname()
   const { toast } = useToast()
   const messagesChat = useRef<HTMLDivElement | null>(null)
   const { value } = useAppLocalStorage()
@@ -54,18 +49,9 @@ function ChatComponent({ initialId, user }: { initialId: string; user: User }) {
     })
   }, [])
 
-  const shouldUpdateChats = useRef(false)
-
   const onFinish = useCallback(() => {
     scrollMessagesToBottom()
-
-    if (shouldUpdateChats.current) {
-      setIsNewChat(false)
-      updateChats().catch((err) => {
-        console.error(err)
-      })
-    }
-  }, [isNewChat, scrollMessagesToBottom, updateChats])
+  }, [scrollMessagesToBottom])
 
   const onError = useCallback((error: Error) => {
     toast({
@@ -73,13 +59,7 @@ function ChatComponent({ initialId, user }: { initialId: string; user: User }) {
       description: error.message,
       variant: 'destructive',
     })
-  }, [])
-
-  const onResponse = useCallback((response: Response) => {
-    if (response.headers.get('x-should-update-chats') === 'true') {
-      shouldUpdateChats.current = true
-    }
-  }, [])
+  }, [toast])
 
   const { messages, input, handleInputChange, handleSubmit, isLoading } =
     useChat({
@@ -94,7 +74,6 @@ function ChatComponent({ initialId, user }: { initialId: string; user: User }) {
       id: initialId,
       initialMessages: chat?.messages ?? [],
       onError,
-      onResponse,
     })
 
   // Cleanup SQL results when component unmounts
@@ -133,7 +112,7 @@ function ChatComponent({ initialId, user }: { initialId: string; user: User }) {
 
   return (
     <div className="flex-1 flex flex-col w-full">
-      <Navbar user={user} />
+      <Navbar />
 
       <div ref={messagesChat} className="flex-1 overflow-y-auto w-full">
         <div className="container mx-auto max-w-4xl h-full">
@@ -411,16 +390,6 @@ function ChatComponent({ initialId, user }: { initialId: string; user: User }) {
             onChange={handleInputChange}
             value={input}
             onSubmit={async (e) => {
-              if (typeof window !== 'undefined') {
-                if (pathname === '/app') {
-                  try {
-                    setIsNewChat(true)
-                    window.history.pushState({}, '', `/app/${initialId}`)
-                  } catch (error) {
-                    console.error('Error pushing state:', error)
-                  }
-                }
-              }
               handleSubmit(e)
               scrollMessagesToBottom()
             }}

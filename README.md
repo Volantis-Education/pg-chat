@@ -1,18 +1,28 @@
-# Chat with your database
+# Volantis Query Wizard 🧙‍♂️
 
-The AI that really knows your postgres DB
+The AI that really knows your Volantis postgres DB
 
 ## How to use
 
 1. Clone the repository
 
-2. Create a `.env.local` file with the following environment variables:
+2. Create a `.env.local` file with your configuration:
 
 ```bash
-NEXT_PUBLIC_SUPABASE_URL=your-project-url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+# Application Password (required for login)
+APP_PASSWORD=your-secure-password-here
+
+# Database Connection (will be pre-filled in the form)
+DB_URL=postgresql://username:password@your-database-host:5432/database_name
+
+# OpenAI API Key (required for AI features)
 OPENAI_API_KEY=your-openai-api-key
 ```
+
+**Note:** 
+- `APP_PASSWORD` is the password you'll share with your team to access the app
+- `DB_URL` and `OPENAI_API_KEY` will be pre-filled in the connection form
+- You can connect to any PostgreSQL database (AWS RDS, Google Cloud SQL, Azure, etc.)
 
 3. Install dependencies
 
@@ -25,6 +35,12 @@ pnpm install
 ```bash
 pnpm run dev
 ```
+
+5. Navigate to `http://localhost:3000/app` and enter your PostgreSQL connection string when prompted
+
+## 🚀 Deployment
+
+Ready to deploy? See [DEPLOYMENT.md](./DEPLOYMENT.md) for complete instructions on deploying to Vercel.
 
 ### It let's you:
 
