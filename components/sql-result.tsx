@@ -3,10 +3,12 @@
 import { QueryResult } from 'pg'
 import { DataTable } from './table'
 
+type SqlQueryResult = QueryResult<Record<string, unknown>>
+
 export default function SqlResult({
   result,
 }: {
-  result: QueryResult<unknown[]> | string
+  result: SqlQueryResult | string
 }) {
   if (typeof result === 'object' && 'fields' in result && 'rows' in result) {
     const headers = result.fields.map((field) => ({

@@ -22,6 +22,8 @@ import { useToast } from '../hooks/use-toast'
 import Navbar from './navbar'
 import { useAppState } from '../state'
 
+type SqlQueryResult = QueryResult<Record<string, unknown>>
+
 const toolCallToNameText = {
   getExplainForQuery: 'Getting query plan...',
   getForeignKeyConstraints: 'Fetching foreign key relationships...',
@@ -90,12 +92,13 @@ function ChatComponent({ initialId }: { initialId: string }) {
   }, [isLoading, messages])
 
   // New state to manage SQL results
+
   const [sqlResults, setSqlResults] = useState<{
-    [key: string]: QueryResult<unknown[]> | string
+    [key: string]: SqlQueryResult | string
   }>({})
 
   const handleSetSqlResult = useCallback(
-    (messageId: string, result: QueryResult<unknown[]> | string) => {
+    (messageId: string, result: SqlQueryResult | string) => {
       setSqlResults((prev) => ({
         ...prev,
         [messageId]: result,

@@ -16,7 +16,9 @@ import Prism from 'prismjs'
 import 'prismjs/components/prism-sql'
 import 'prismjs/themes/prism-okaidia.css'
 
-const convertToResult = (rows: unknown[]): Result[] => {
+type SqlQueryResult = QueryResult<Record<string, unknown>>
+
+const convertToResult = (rows: Record<string, unknown>[]): Result[] => {
   return rows.map((row) => {
     if (typeof row === 'object' && row !== null) {
       return Object.entries(row).reduce((acc, [key, value]) => {
@@ -38,8 +40,8 @@ function CodeBlock({
 }: {
   children: React.ReactNode
   language?: string
-  sqlResult?: QueryResult<unknown[]> | string
-  setSqlResult: (result: QueryResult<unknown[]> | string) => void
+  sqlResult?: SqlQueryResult | string
+  setSqlResult: (result: SqlQueryResult | string) => void
   isDisabled?: boolean
   connectionString: string
 }) {
